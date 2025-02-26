@@ -5,9 +5,9 @@ from typing import Dict, List, Optional
 import anndata
 import pandas as pd
 
-from . import gencode, schema
+from . import uniprot, schema
 from .env import SCHEMA_REFERENCE_BASE_URL, SCHEMA_REFERENCE_FILE_NAME
-from .gencode import get_gene_checker
+from .uniprot import get_gene_checker
 from .utils import get_hash_digest_column, getattr_anndata
 from .validate import ONTOLOGY_PARSER
 
@@ -157,12 +157,12 @@ class AnnDataLabelAppender:
         mapping_dict = {}
 
         for i in ids:
-            organism = gencode.get_organism_from_feature_id(i)
+            organism = uniprot.get_organism_from_feature_id(i)
             mapping_dict[i] = get_gene_checker(organism).get_symbol(i)
 
         return mapping_dict
 
-    def _get_mapping_dict_feature_reference(self, ids: List[str]) -> Dict[str, Optional[gencode.SupportedOrganisms]]:
+    def _get_mapping_dict_feature_reference(self, ids: List[str]) -> Dict[str, Optional[uniprot.SupportedOrganisms]]:
         """
         Creates a mapping dictionary of gene/feature IDs and NCBITaxon curies
 
@@ -175,26 +175,26 @@ class AnnDataLabelAppender:
         mapping_dict = {}
 
         for i in ids:
-            organism = gencode.get_organism_from_feature_id(i)
+            organism = uniprot.get_organism_from_feature_id(i)
             mapping_dict[i] = organism.value
 
         return mapping_dict
 
-    def _get_mapping_dict_feature_type(self, ids: List[str]) -> Dict[str, str]:
+    def _get_mapping_dict_feature_location(self, ids: List[str]) -> Dict[str, str]:
         """
         Creates a mapping dictionary of gene/feature IDs and its feature type.
 
         :param list[str] ids: Gene/feature IDs use for mapping
 
-        :return a mapping dictionary: {id: feature_type, ...}
+        :return a mapping dictionary: {id: feature_location, ...}
         :rtype dict
         """
 
         mapping_dict = {}
 
         for i in ids:
-            organism = gencode.get_organism_from_feature_id(i)
-            mapping_dict[i] = get_gene_checker(organism).get_type(i)
+            organism = uniprot.get_organism_from_feature_id(i)
+            mapping_dict[i] = get_gene_checker(organism).get_location(i)
 
         return mapping_dict
 
@@ -220,7 +220,7 @@ class AnnDataLabelAppender:
     def _get_mapping_dict_feature_length(self, ids: List[str]) -> Dict[str, int]:
         """
         Creates a mapping dictionary of feature IDs and feature length, fetching from pre-calculated gene info CSVs
-        derived from GENCODE mappings for supported organisms. Set to 0 for non-gene features.
+        derived from UniProt mappings for supported organisms. Set to 0 for non-gene features.
 
         :param list[str] ids: feature IDs use for mapping
 
@@ -230,7 +230,7 @@ class AnnDataLabelAppender:
         mapping_dict = {}
 
         for i in ids:
-            organism = gencode.get_organism_from_feature_id(i)
+            organism = uniprot.get_organism_from_feature_id(i)
             mapping_dict[i] = get_gene_checker(organism).get_length(i)
 
         return mapping_dict
@@ -291,8 +291,8 @@ class AnnDataLabelAppender:
         elif label_type == "feature_length":
             mapping_dict = self._get_mapping_dict_feature_length(ids=ids)
 
-        elif label_type == "feature_type":
-            mapping_dict = self._get_mapping_dict_feature_type(ids=ids)
+        elif label_type == "feature_location":
+            mapping_dict = self._get_mapping_dict_feature_location(ids=ids)
 
         else:
             raise TypeError(f"'{label_type}' is not supported in 'add-labels' functionality")

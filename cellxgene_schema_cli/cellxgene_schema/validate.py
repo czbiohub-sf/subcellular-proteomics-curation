@@ -16,8 +16,8 @@ from cellxgene_ontology_guide.ontology_parser import OntologyParser
 from dask.array import map_blocks
 from scipy import sparse
 
-from . import gencode, schema
-from .gencode import get_gene_checker
+from . import uniprot, schema
+from .uniprot import get_gene_checker
 from .utils import (
     SPARSE_MATRIX_TYPES,
     SUPPORTED_SPARSE_MATRIX_TYPES,
@@ -68,10 +68,11 @@ ERROR_SUFFIX_SPARSE_FORMAT = f"Please ensure it is either a dense array or one o
 class Validator:
     """Handles validation of AnnData"""
 
-    def __init__(self, ignore_labels=False):
+    def __init__(self, ignore_labels=False, transpose=False):
         self.schema_def = dict()
         self.schema_version: str = None
         self.ignore_labels = ignore_labels
+        self.transpose = transpose
         self._visium_and_is_single_true_matrix_size = None
         self._hires_max_dimension_size = None
         self._visium_error_suffix = None
@@ -439,12 +440,11 @@ class Validator:
         :rtype none
         """
 
-        organism = gencode.get_organism_from_feature_id(feature_id)
+        organism = uniprot.get_organism_from_feature_id(feature_id)
 
         if not organism:
             self.errors.append(
-                f"Could not infer organism from feature ID '{feature_id}' in '{df_name}', "
-                f"make sure it is a valid ID."
+                f"Could not infer organism from feature ID '{feature_id}' in '{df_name}', make sure it is a valid ID."
             )
             return
 
@@ -896,7 +896,7 @@ class Validator:
         """
 
         if value not in enum:
-            self.errors.append(f"'{value}' in '{dict_name}['{key}']' is not valid. " f"Allowed terms: {enum}.")
+            self.errors.append(f"'{value}' in '{dict_name}['{key}']' is not valid. Allowed terms: {enum}.")
 
     def _validate_dict(self, dictionary: dict, dict_name: str, dict_def: dict):
         """
@@ -931,13 +931,13 @@ class Validator:
 
                 if value not in self.adata.obsm:
                     self.errors.append(
-                        f"'{value}' in '{dict_name}['{key}']' is not valid, " f"it must be a key of 'adata.obsm'."
+                        f"'{value}' in '{dict_name}['{key}']' is not valid, it must be a key of 'adata.obsm'."
                     )
 
             if value_def["type"] == "list":
                 if not (isinstance(value, (list, np.ndarray))):
                     self.errors.append(
-                        f"'{value}' in '{dict_name}['{key}']' is not valid, " f"it must be a list or numpy array."
+                        f"'{value}' in '{dict_name}['{key}']' is not valid, it must be a list or numpy array."
                     )
                     continue
 
@@ -1185,7 +1185,7 @@ class Validator:
 
             if not isinstance(value, np.ndarray):
                 self.errors.append(
-                    f"All embeddings have to be of 'numpy.ndarray' type, " f"'adata.obsm['{key}']' is {type(value)}')."
+                    f"All embeddings have to be of 'numpy.ndarray' type, 'adata.obsm['{key}']' is {type(value)}')."
                 )
                 # Skip over the subsequent checks that require the value to be an array
                 continue
@@ -1233,11 +1233,11 @@ class Validator:
         has_spatial_embedding = "spatial" in self.adata.obsm
         if is_single and not has_spatial_embedding:
             self.errors.append(
-                "'spatial' embedding is required in 'adata.obsm' if " "adata.uns['spatial']['is_single'] is True."
+                "'spatial' embedding is required in 'adata.obsm' if adata.uns['spatial']['is_single'] is True."
             )
         elif is_single is None and has_spatial_embedding:
             self.errors.append(
-                "'spatial' embedding is forbidden in 'adata.obsm' if " "adata.uns['spatial']['is_single'] is not set."
+                "'spatial' embedding is forbidden in 'adata.obsm' if adata.uns['spatial']['is_single'] is not set."
             )
 
     def _validate_annotation_mapping(self, component_name: str, component: Mapping):
@@ -1490,14 +1490,14 @@ class Validator:
         if self._get_raw_x_loc() == "raw.X":
             if self.adata.n_vars != self.adata.raw.n_vars:
                 self.errors.append(
-                    f"Number of genes in X ({self.adata.n_vars}) is different " f"than raw.X ({self.adata.raw.n_vars})."
+                    f"Number of genes in X ({self.adata.n_vars}) is different than raw.X ({self.adata.raw.n_vars})."
                 )
             else:
                 if not (self.adata.var.index == self.adata.raw.var.index).all():
                     self.errors.append("Index of 'raw.var' is not identical to index of 'var'.")
             if self.adata.n_obs != self.adata.raw.n_obs:
                 self.errors.append(
-                    f"Number of cells in X ({self.adata.n_obs}) is different " f"than raw.X ({self.adata.raw.n_obs})."
+                    f"Number of cells in X ({self.adata.n_obs}) is different than raw.X ({self.adata.raw.n_obs})."
                 )
             else:
                 if not (self.adata.obs_names == self.adata.raw.obs_names).all():
@@ -1728,7 +1728,7 @@ class Validator:
         # Validate assay ontology term ids are identical.
         term_count = obs["assay_ontology_term_id"].nunique()
         if term_count > 1:
-            self.errors.append(f"When {ERROR_SUFFIX_SPATIAL}" ", all observations must contain the same value.")
+            self.errors.append(f"When {ERROR_SUFFIX_SPATIAL}, all observations must contain the same value.")
 
     def _validate_spatial_cell_type_ontology_term_id(self):
         """
@@ -1873,7 +1873,7 @@ class Validator:
 
         # spatial is required for supported spatial assays.
         if not isinstance(uns_spatial, dict):
-            self.errors.append("A dict in uns['spatial'] is required when " f"{ERROR_SUFFIX_SPATIAL}.")
+            self.errors.append(f"A dict in uns['spatial'] is required when {ERROR_SUFFIX_SPATIAL}.")
             return
 
         # is_single is required.
@@ -2143,10 +2143,10 @@ class Validator:
         self._validate_sparsity()
 
         # Checks spatial
-        self._check_spatial()
+        # self._check_spatial()
 
         # Validate genetic ancestry
-        self._validate_genetic_ancestry()
+        # self._validate_genetic_ancestry()
 
         # Organism-specific prefix validation
         self._validate_tissue_ontology_term_id()
@@ -2201,7 +2201,10 @@ class Validator:
 
         if h5ad_path:
             logger.debug("Reading the h5ad file...")
-            self.adata = read_h5ad(h5ad_path)
+            if self.transpose:
+                self.adata = read_h5ad(h5ad_path).T
+            else:
+                self.adata = read_h5ad(h5ad_path)
             self.h5ad_path = h5ad_path
             self._validate_encoding_version()
             logger.debug("Successfully read the h5ad file")
@@ -2236,6 +2239,7 @@ def validate(
     h5ad_path: Union[str, bytes, os.PathLike],
     add_labels_file: str = None,
     ignore_labels: bool = False,
+    transpose: bool = False,
 ) -> (bool, list, bool):
     from .write_labels import AnnDataLabelAppender
 
@@ -2254,6 +2258,7 @@ def validate(
     start = datetime.now()
     validator = Validator(
         ignore_labels=ignore_labels,
+        transpose=transpose,
     )
 
     with dask.config.set({"scheduler": "threads"}):
