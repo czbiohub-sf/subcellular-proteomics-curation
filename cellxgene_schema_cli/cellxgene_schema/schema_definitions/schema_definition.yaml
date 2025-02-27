@@ -106,6 +106,12 @@ components:
     reserved_columns:
       - observation_joinid
     columns:
+      enrichment_strategy:
+        type: string
+        enum:
+          - "Immunoprecipitation"
+          - "Centrifugation"
+          - "unknown"
       cell_type_ontology_term_id:
         type: curie
         curie_constraints:
