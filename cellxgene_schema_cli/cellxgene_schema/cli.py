@@ -56,6 +56,34 @@ def schema_validate(h5ad_file, add_labels_file, ignore_labels, transpose):
 
 
 @schema_cli.command(
+    name="initialize-metadata-db",
+    short_help="Initialize the metadata database.",
+    help="Initialize the metadata database.",
+)
+@click.argument("db_file", nargs=1, type=click.Path(exists=False, dir_okay=False, writable=True))
+def initialize_metadata_db(db_file):
+    from .metadata_db import initialize_metadata_db
+
+    initialize_metadata_db(db_file)
+    logger.info(f"Metadata database initialized at {db_file}")
+
+
+@schema_cli.command(
+    name="update-metadata-db",
+    short_help="Update the metadata database with metadata from a h5ad file.",
+    help="Update the metadata database with metadata from a h5ad file.",
+)
+@click.argument("db_file", nargs=1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("h5ad_file", nargs=1, type=click.Path(exists=True, dir_okay=False))
+@click.option("-o", "--overwrite", help="Overwrite existing metadata", is_flag=True)
+def update_metadata_db(db_file, h5ad_file, overwrite):
+    from .metadata_db import update_metadata_db
+
+    update_metadata_db(db_file, h5ad_file, overwrite)
+    logger.info(f"Metadata database updated at {db_file}")
+
+
+@schema_cli.command(
     name="add-labels",
     short_help="Create a copy of an h5ad with portal-added labels",
     help="Create a copy of an h5ad with portal-added labels. The labels are added based on the IDs in the "

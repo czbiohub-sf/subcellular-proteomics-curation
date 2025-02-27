@@ -1,0 +1,29 @@
+components:
+  uns:
+    keys:
+      - title
+      - publication_title
+      - publication_authors
+      - publication_journal
+      - publication_doi
+      - publication_date
+  var:
+    columns:
+      - enrichment_strategy
+      - cell_type_ontology_term_id
+      - cell_type
+      - disease_ontology_term_id
+      - disease
+      - organism_ontology_term_id
+      - organism
+      - sex_ontology_term_id
+      - sex
+      - development_stage_ontology_term_id
+      - development_stage
+      - tissue_type
+
+attributes:
+  protein_count:
+    type: integer
+  sample_count:
+    type: integer
