@@ -31,7 +31,7 @@ components:
       - project_description
       - project_links
       - project_name
-      - publication_doi
+      # - publication_doi
     keys:
       title:
         type: string

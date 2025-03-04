@@ -27,3 +27,5 @@ attributes:
     type: integer
   sample_count:
     type: integer
+  file_name:
+    type: string
