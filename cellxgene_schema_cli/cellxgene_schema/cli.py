@@ -84,6 +84,20 @@ def update_metadata_db(db_file, h5ad_file, overwrite):
 
 
 @schema_cli.command(
+    name="delete-metadata-db-entry",
+    short_help="Delete an entry from the metadata database.",
+    help="Delete an entry from the metadata database.",
+)
+@click.argument("db_file", nargs=1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("title", nargs=1, type=str)
+def delete_metadata_db_entry(db_file, title):
+    from .metadata_db import delete_metadata_db_entry
+
+    delete_metadata_db_entry(db_file, title)
+    logger.info(f"Deleted {title} form metadata database at {db_file}")
+
+
+@schema_cli.command(
     name="add-labels",
     short_help="Create a copy of an h5ad with portal-added labels",
     help="Create a copy of an h5ad with portal-added labels. The labels are added based on the IDs in the "

@@ -39,6 +39,7 @@ def _initialize_dataset_metadata_table(conn: sqlite3.Connection, dataset_metadat
     cur.execute(
         """
         CREATE TABLE dataset_metadata (
+            "file_name" TEXT,
             {}
         )
         """.format(",".join(f'"{col}" TEXT' for col in dataset_metadata_cols))
@@ -106,7 +107,7 @@ def update_metadata_db(db_file: str, adata_file: str, overwrite: bool = False):
                 cur.execute("DELETE FROM dataset_metadata WHERE title = ?", (adata.uns["title"],))
                 cur.execute("DELETE FROM sample_metadata WHERE title = ?", (adata.uns["title"],))
         add_sample_metadata(conn, adata, sample_metadata_cols)
-        add_dataset_metadata(conn, adata, dataset_metadata_cols, dataset_metadata_attrs)
+        add_dataset_metadata(conn, adata, dataset_metadata_cols, dataset_metadata_attrs, adata_file)
 
 
 def add_sample_metadata(conn: sqlite3.Connection, adata: AnnData, sample_metadata_cols: list):
@@ -123,11 +124,12 @@ def add_sample_metadata(conn: sqlite3.Connection, adata: AnnData, sample_metadat
 
 
 def add_dataset_metadata(
-    conn: sqlite3.Connection, adata: AnnData, dataset_metadata_cols: dict, dataset_metadata_attrs: dict
+    conn: sqlite3.Connection, adata: AnnData, dataset_metadata_cols: dict, dataset_metadata_attrs: dict, adata_file: str
 ):
     dataset_metadata = get_dataset_metadata_uns(adata, dataset_metadata_cols.keys())
     dataset_metadata["protein_count"] = adata.shape[0]
     dataset_metadata["sample_count"] = adata.shape[1]
+    dataset_metadata["file_name"] = os.path.basename(adata_file)
     assert set(dataset_metadata.keys()) == set(dataset_metadata_cols.keys()).union(set(dataset_metadata_attrs.keys()))
 
     if not check_if_dataset_metadata_table_exists(conn):
@@ -156,6 +158,20 @@ def check_if_title_exists(conn: sqlite3.Connection, title: str):
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM dataset_metadata WHERE title = ?", (title,))
     return cur.fetchone()[0] > 0
+
+
+def delete_metadata_db_entry(db_file: str, title: str):
+    with sqlite3.connect(db_file, timeout=30, isolation_level=None) as con:
+        cur = con.cursor()
+
+        # Check if the title exists
+        cur.execute("SELECT COUNT(*) FROM dataset_metadata WHERE title = ?", (title,))
+        if cur.fetchone()[0] == 0:
+            raise ValueError(f"Title '{title}' does not exist in the database.")
+
+        # Delete the entry
+        cur.execute("DELETE FROM dataset_metadata WHERE title = ?", (title,))
+        cur.execute("DELETE FROM sample_metadata WHERE title = ?", (title,))
 
 
 def get_doi_metadata(doi_input):
@@ -193,7 +209,12 @@ def get_doi_metadata(doi_input):
         authors = message.get("author", [])
         author_list = [f"{author.get('given', '')} {author.get('family', '')}".strip() for author in authors]
 
-        return {"title": title, "journal": journal, "publication_date": publication_date, "authors": author_list}
+        return {
+            "publication_title": title,
+            "publication_journal": journal,
+            "publication_date": publication_date,
+            "publication_authors": author_list,
+        }
 
     except Exception as e:
         return {"error": str(e)}
