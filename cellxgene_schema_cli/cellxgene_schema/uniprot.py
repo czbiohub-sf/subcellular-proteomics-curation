@@ -106,12 +106,14 @@ class GeneChecker:
         """
         Checks for validity of gene id
 
-        :param str gene_id: ENSEMBL gene id
+        :param str gene_id: uniprot id
 
         :rtype bool
-        :return True if the gene_id is a valid ENSEMBL id, False otherwise
+        :return True if the gene_id is a valid uniprot id, False otherwise
         """
 
+        # Uniprot IDs can have isoform suffixes, these are allowed. We only check if we have the canonical isoform ID.
+        gene_id = gene_id.split("-")[0]
         return gene_id in self.gene_dict
 
     def get_symbol(self, gene_id: str) -> str:
@@ -123,6 +125,8 @@ class GeneChecker:
         :rtype str
         :return A gene symbol
         """
+        # Uniprot IDs can have isoform suffixes, these are allowed. All isoforms will have the same gene, so we can just take the first part.
+        gene_id = gene_id.split("-")[0]
 
         if self.is_valid_id(gene_id):
             return self.gene_dict[gene_id][0]
@@ -139,6 +143,9 @@ class GeneChecker:
         :return A gene length
         """
 
+        # Uniprot IDs can have isoform suffixes, these are allowed. All isoforms will have the same gene, so we can just take the first part.
+        gene_id = gene_id.split("-")[0]
+
         if self.is_valid_id(gene_id):
             return self.gene_dict[gene_id][1]
         else:
@@ -153,6 +160,9 @@ class GeneChecker:
         :rtype str
         :return A feature type
         """
+
+        # Uniprot IDs can have isoform suffixes, these are allowed. All isoforms will have the same gene, so we can just take the first part.
+        gene_id = gene_id.split("-")[0]
 
         if self.is_valid_id(gene_id):
             return self.gene_dict[gene_id][2]
