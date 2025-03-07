@@ -36,6 +36,7 @@ def get_dataset_metadata_doc(adata, dataset_metadata_cols_keys, dataset_metadata
     dataset_metadata["sample_count"] = adata.shape[1]
     dataset_metadata["file_name"] = os.path.basename(adata_file)
     dataset_metadata["title"] = adata.uns.get("title", "Untitled")
+    dataset_metadata["_type"] = "dataset"
     return dataset_metadata
 
 def get_sample_metadata_docs(adata, sample_metadata_cols):
@@ -45,6 +46,7 @@ def get_sample_metadata_docs(adata, sample_metadata_cols):
     for sample_id, row in df.iterrows():
         doc = row.to_dict()
         doc["sample_id"] = sample_id
+        doc["_type"] = "sample"
         sample_docs.append(doc)
     return sample_docs
 
