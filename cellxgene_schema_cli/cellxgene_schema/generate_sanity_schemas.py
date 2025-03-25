@@ -4,7 +4,17 @@ import json
 import yaml
 import anndata as ad
 import numpy as np
+from dateutil import parser as date_parser
 
+"""
+    Usage Examples: (run inside a virtual environment with anndata installed)
+    
+    Initialize the JSON files:
+    python generate_sanity_schemas.py initialize /path/to/json_dir
+    
+    Update the JSON files with a new .h5ad file:
+    python generate_sanity_schemas.py update /path/to/json_dir /path/to/adata_file.h5ad --overwrite
+"""
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 METADATA_SCHEMA_DEFINITION_FILE = os.path.join(
     CURRENT_DIR, "schema_definitions", "metadata_schema_definition.yaml"
@@ -30,23 +40,46 @@ def get_dataset_metadata_uns(adata, uns_keys):
         dm.append(v)
     return dict(zip(uns_keys, dm))
 
+def parse_publication_date(pub_date):
+    if not pub_date:
+        return None
+    try:
+        dt = date_parser.parse(pub_date)
+        return dt.strftime("%Y-%m-%d")
+    except Exception as e:
+        raise ValueError(
+            f"Unable to parse publication_date '{pub_date}'. Please fix the date format in the anndata object before uploading. "
+            f"Expected format is YYYY-MM-DD or any other standard date format. Error: {e}"
+        )
+
 def get_dataset_metadata_doc(adata, dataset_metadata_cols_keys, dataset_metadata_attrs, adata_file):
     dataset_metadata = get_dataset_metadata_uns(adata, dataset_metadata_cols_keys)
+    
+    pub_date = dataset_metadata.get("publication_date")
+    if pub_date:
+        dataset_metadata["publication_date"] = parse_publication_date(pub_date)
+    
     dataset_metadata["protein_count"] = adata.shape[0]
     dataset_metadata["sample_count"] = adata.shape[1]
     dataset_metadata["file_name"] = os.path.basename(adata_file)
-    dataset_metadata["title"] = adata.uns.get("title", "Untitled")
+    
+    dataset_id = adata.uns.get("title", "Untitled")
+    dataset_metadata["_id"] = dataset_id
     dataset_metadata["_type"] = "dataset"
+    if "title" in dataset_metadata:
+        del dataset_metadata["title"]
     return dataset_metadata
 
 def get_sample_metadata_docs(adata, sample_metadata_cols):
     df = adata.var[sample_metadata_cols].copy()
-    df["title"] = adata.uns.get("title", "Untitled")
+    dataset_id = adata.uns.get("title", "Untitled")
+    df["title"] = dataset_id
     sample_docs = []
     for sample_id, row in df.iterrows():
         doc = row.to_dict()
         doc["sample_id"] = sample_id
         doc["_type"] = "sample"
+        doc["dataset"] = {"_ref": dataset_id, "_type": "reference"}
         sample_docs.append(doc)
     return sample_docs
 
@@ -86,14 +119,14 @@ def update_metadata_json(json_dir, adata_file, overwrite=False):
     if not dataset_title:
         raise ValueError("No 'title' found in adata.uns")
     
-    exists = any(doc.get("title") == dataset_title for doc in dataset_docs)
+    exists = any(doc.get("_id") == dataset_title for doc in dataset_docs)
     if exists and not overwrite:
-        raise ValueError(f"Dataset with title '{dataset_title}' already exists. Use --overwrite to update.")
+        raise ValueError(f"Dataset with _id '{dataset_title}' already exists. Use --overwrite to update.")
     
     if exists and overwrite:
-        dataset_docs = [doc for doc in dataset_docs if doc.get("title") != dataset_title]
+        dataset_docs = [doc for doc in dataset_docs if doc.get("_id") != dataset_title]
         sample_docs = [doc for doc in sample_docs if doc.get("title") != dataset_title]
-        print(f"Updating dataset with title '{dataset_title}'")
+        print(f"Updating dataset with _id '{dataset_title}'")
     
     new_dataset_doc = get_dataset_metadata_doc(adata, dataset_metadata_cols.keys(), dataset_metadata_attrs, adata_file)
     dataset_docs.append(new_dataset_doc)
@@ -103,7 +136,7 @@ def update_metadata_json(json_dir, adata_file, overwrite=False):
     write_ndjson(dataset_file, dataset_docs)
     write_ndjson(sample_file, sample_docs)
     
-    print(f"Metadata updated with dataset '{dataset_title}' from file '{adata_file}'.")
+    print(f"Metadata updated with dataset _id '{dataset_title}' from file '{adata_file}'.")
 
 if __name__ == "__main__":
     import argparse
