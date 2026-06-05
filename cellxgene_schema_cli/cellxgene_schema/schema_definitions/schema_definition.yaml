@@ -124,18 +124,21 @@ components:
       enrichment_strategy:
         type: string
         enum:
-          - "hyperLOPIT"
-          - "dLOPIT"
-          - "LOPIT-DC"
-          - "BioID"
-          - "NOC"
           - "ATPS"
-          - "Dynamic Organellar Maps"
-          - "Density-gradient centrifugation"
-          - "SubCellBarCode"
+          - "BioID"
           - "Detergent separation"
+          - "Density-gradient centrifugation"
+          - "COLA"
+          - "dLOPIT"
+          - "DIA-LOP"
+          - "Dynamic Organellar Maps"
+          - "hyperLOPIT"
+          - "iCOLA"
+          - "LOPIT-DC"
+          - "NOC"
           - "Organelle IP"
           - "Protein correlation profiling"
+          - "SubCellBarCode"
           - "unknown"
       cell_type_ontology_term_id:
         type: curie
