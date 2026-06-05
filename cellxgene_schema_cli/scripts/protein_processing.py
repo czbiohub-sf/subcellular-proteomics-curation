@@ -15,17 +15,24 @@ from typing import Dict
 # import gtf_tools
 import yaml
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../cellxgene_schema"))
-import env
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
+from cellxgene_schema import env
 
 import re
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
+import argparse
+
 
 class ProteinProcessingResult:
     def __init__(
-        self, protein_id: str, protein_name: str, protein_version: str, protein_length: str, protein_type: str
+        self,
+        protein_id: str,
+        protein_name: str,
+        protein_version: str,
+        protein_length: str,
+        protein_type: str,
     ):
         self.protein_id = protein_id  # ex: ENSG00000141510, should be unique
         self.protein_name = protein_name  # ex: TP53, not necessarily unique
@@ -35,11 +42,12 @@ class ProteinProcessingResult:
 
 
 class ProteinProcessor:
-    def __init__(self):
+    def __init__(self, force_download: bool = False):
         # Global mapping of protein id to all the metadata we need to proteinrate output files
         self.protein_metadata: dict[str, ProteinProcessingResult] = {}
         # Mapping from description (ex: "mus musculus") to a list of protein ids
         self.protein_ids_by_description: dict[str, list[str]] = {}
+        self.force_download = force_download
 
     # def write_gzip(self, data: str, output_filename: str):
     #     """
@@ -221,7 +229,7 @@ class ProteinProcessor:
 
     def process_protein_infos(self, protein_infos: dict) -> None:
         for protein_info_key in protein_infos:
-            print(protein_info_key)
+            # print(protein_info_key)
             # Add to self.protein_labels and self.protein_ids_by_description
 
             self.process_individual_protein_info(protein_infos[protein_info_key])
@@ -298,12 +306,16 @@ class ProteinProcessor:
 
         file = os.path.join(env.UNIPROT_DIR, f"proteins_{protein_info_description}.tsv.gz")
 
-        # Download from uniprot without pagination
-        with requests.get(url, stream=True) as request:
-            request.raise_for_status()
-            with open(file, "wb") as f:
-                for chunk in request.iter_content(chunk_size=2**20):
-                    f.write(chunk)
+        force_download = getattr(self, "force_download", False)
+        if not os.path.exists(file) or force_download:
+            print(f"Downloading protein info to {file} (force={force_download})")
+            with requests.get(url, stream=True) as request:
+                request.raise_for_status()
+                with open(file, "wb") as f:
+                    for chunk in request.iter_content(chunk_size=2**20):
+                        f.write(chunk)
+        else:
+            print(f"File {file} already exists; skipping download. Use --force to re-download.")
 
         # Download from uniprot with pagination
         # re_next_link = re.compile(r'<(.+)>; rel="next"')
@@ -373,7 +385,11 @@ def main():
     with open(env.PROTEIN_INFO_YAML, "r") as protein_info_handle:
         protein_infos: dict = yaml.safe_load(protein_info_handle)
 
-    protein_processor = ProteinProcessor()
+    parser = argparse.ArgumentParser(description="Process and download UniProt protein info files.")
+    parser.add_argument("--force", action="store_true", help="Force redownload of files even if they exist.")
+    args = parser.parse_args()
+
+    protein_processor = ProteinProcessor(force_download=args.force)
     protein_processor.process_protein_infos(protein_infos)
 
 
