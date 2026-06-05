@@ -77,3 +77,13 @@ The validation rules live in
 make unit-test   # run the unit tests
 make check       # pre-commit (black, ruff) + mypy
 ```
+
+## Authors
+
+This is a fork of CZI's
+[`single-cell-curation`](https://github.com/chanzuckerberg/single-cell-curation)
+(the `cellxgene-schema` tool), originally developed by the Chan Zuckerberg Initiative.
+
+This fork is maintained by the
+[Computational Biology Platform](https://www.czbiohub.org/comp-biology/) at the
+[Chan Zuckerberg Biohub San Francisco](https://www.czbiohub.org/sf/).
