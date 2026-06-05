@@ -1,78 +1,79 @@
-# cellxgene curation tools
+# subcellular-proteomics-curation
 
-[![codecov](https://codecov.io/gh/chanzuckerberg/single-cell-curation/branch/main/graph/badge.svg?token=J8OT7OXKHJ)](https://codecov.io/gh/chanzuckerberg/single-cell-curation)
+An adjusted version of CZI's [`cellxgene-schema`](https://github.com/chanzuckerberg/single-cell-curation),
+repurposed for **subcellular proteomics** datasets. The original tool validates single-cell
+*genomics* data against the cellxgene schema using GENCODE gene references; this fork swaps
+gene validation for **UniProt protein** validation and trims the genomics-only machinery
+(ATAC-seq, spatial/Visium, species mapping, schema migration, and the original CLI).
 
-This repository contains documents and code used by cellxgene's curation team. Issues/suggestions pertaining to datasets and how they interact with cellxgene should be created here. 
-
-For information/issues about cellxgene and its portal please refer to:
-
-- [single-cell-explorer](https://github.com/chanzuckerberg/single-cell-explorer)
-- [single-cell-data-portal](https://github.com/chanzuckerberg/single-cell-data-portal)
+It is used as a **library** by the curation driver scripts in the companion
+`curation_grassp` project (`validate_objects.py` and `annotate_objects.py`) — there is no
+longer a `cellxgene-schema` command-line tool.
 
 ## Installation
 
-The primary curation tool is the `cellxgene-schema` CLI. It enables curators to perform [schema](./schema/3.0.0/schema.md) validation for datasets to be hosted on the [cellxgene Data Portal](https://cellxgene.cziscience.com/).
+The package lives in the `cellxgene_schema_cli/` subdirectory. Install it directly from
+GitHub with pip:
 
-It requires Python >= 3.8. It is available through pip:
-
-```
-pip install cellxgene-schema
-```
-
-It can also be installed from the source by cloning this repository and running:
-
-```
-make install 
+```bash
+pip install "git+https://github.com/czbiohub-sf/subcellular-proteomics-curation.git#subdirectory=cellxgene_schema_cli"
 ```
 
-And you can run the tests with:
+This pulls in all dependencies, including the ontology data package
+[`grassp-ontology-guide`](https://github.com/czbiohub-sf/grassp-ontology-guide) (a CZ Biohub
+fork of `cellxgene-ontology-guide` that adds non-animal organisms such as yeast). That wheel
+is referenced directly in `requirements.txt`; if you need to install it on its own:
 
+```bash
+pip install https://github.com/czbiohub-sf/grassp-ontology-guide/releases/download/v1.9.0/cellxgene_ontology_guide-1.9.0-py3-none-any.whl
 ```
-make unit-test
+
+### Install from a local clone
+
+```bash
+make install   # runs: cd cellxgene_schema_cli && pip install -r requirements.txt && pip install .
 ```
 
 ## Usage
 
-The CLI validates an [AnnData file](https://anndata.readthedocs.io/en/latest/) (\*.h5ad) to ensure that it addresses the schema requirements.
+The package is consumed as a library. The key entry points:
 
-Datasets can be validated using the following command line:
+```python
+from cellxgene_schema import validate
+from cellxgene_schema.write_labels import AnnDataLabelAppender
+from cellxgene_schema.uniprot import GeneChecker
 
-```
-cellxgene-schema validate input.h5ad
-```
+# Validate an in-memory AnnData object
+validator = validate.Validator()
+validator.adata = adata
+validator._set_schema_def()
+validator._deep_check()
+print(validator.errors, validator.warnings)
 
-If the validation succeeds, the command returns a zero exit code; otherwise, it returns a non-zero exit code and prints validation failure messages.
-
----
-
-This experimental validator also offers the option to annotate required columns `cell_type_ontology_term_id` and `tissue_ontology_term_id` in Zebrafish, Fruit Fly, or C. Elegans anndata BEFORE running validation commands above. 
-
-This relies on your anndata having the appropriate species-specific ontology terms (e.g. ZFA, FbBT, WBbt) labeled in `organism_cell_type_ontology_term_id` and `organism_tissue_ontology_term_id`, respectively. 
-
-```
-cellxgene-schema map-species output.h5ad input.h5ad
-```
-
-The command will find the closest CL (for cell_type) or UBERON (for tissue) mapping for the given term, offering either an exact match for the given term or a match from the closest possible ancestor term. This is based on the CL and UBERON [SSSOM](https://mapping-commons.github.io/sssom/toolkit/) mappings.
-
-If there are multiple closest ancestors of the same distance with a match, the command will NOT annotate those rows and instead log your closest ancestor match options for your manual curation.
-
----
-
-The data portal runs the following in the backend:
-
-```
-cellxgene-schema validate --add-labels output.h5ad input.h5ad
+# Append human-readable labels (protein names, lengths, locations, ontology labels)
+appender = AnnDataLabelAppender(adata)
+appender._add_labels()
 ```
 
-This execution validates the dataset as above AND adds the human-readable labels for the ontology and gene IDs as defined in the schema. If the validation is successful, a new AnnData file (output.h5ad) is written to disk with the labels appended.
+See `validate_objects.py` and `annotate_objects.py` in the `curation_grassp` project for the
+full validation and annotation workflow.
 
-This option SHOULD NOT be used by data contributors.
+## Protein references
 
-## Contributing
+Protein validation uses gzipped UniProt TSV files bundled in
+`cellxgene_schema_cli/cellxgene_schema/uniprot_files/`. Supported organisms are configured in
+the `SupportedOrganisms` enum in `cellxgene_schema/uniprot.py`. The reference files are
+regenerated with `cellxgene_schema_cli/scripts/protein_processing.py`, and outdated UniProt
+accessions can be remapped with `scripts/update_uniprot_ids.py`.
 
-Please read our contributing [guidelines](CONTRIBUTING.md) and make sure adhere to the Contributor Covenant [code of conduct](https://github.com/chanzuckerberg/.github/blob/master/CODE_OF_CONDUCT.md). 
+## Schema definition
 
-## Reporting Security Issues                     
-                                                
-Please read our [security reporting policy](SECURITY.md)
+The validation rules live in
+`cellxgene_schema_cli/cellxgene_schema/schema_definitions/schema_definition.yaml`.
+
+## Development
+
+```bash
+make unit-test   # run the unit tests
+make check       # pre-commit (black, ruff) + mypy
+```

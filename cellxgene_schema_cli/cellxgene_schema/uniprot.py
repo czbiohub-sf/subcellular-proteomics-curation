@@ -2,6 +2,7 @@ import enum
 import gzip
 import os
 from typing import Union
+import numpy as np
 
 import pandas as pd
 
@@ -11,7 +12,10 @@ from . import env
 class SupportedOrganisms(enum.Enum):
     # NOTE: these could be enumerated from loading the `schema_definition.yaml` and scraping the 'organism_ontology_term_id' constraints
     HOMO_SAPIENS = "NCBITaxon:9606"
-    # MUS_MUSCULUS = "NCBITaxon:10090"
+    MUS_MUSCULUS = "NCBITaxon:10090"
+    RATTUS_NORVEGICUS = "NCBITaxon:10116"
+    DROSOPHILA_MELANOGASTER = "NCBITaxon:7227"
+    SACCHAROMYCES_CEREVISIAE = "NCBITaxon:559292"
     # SARS_COV_2 = "NCBITaxon:2697049"
     # ERCC = "NCBITaxon:32630"
     # DROSOPHILA_MELANOGASTER = "NCBITaxon:7227"
@@ -53,7 +57,14 @@ class GeneChecker:
 
     GENE_FILES = {
         SupportedOrganisms.HOMO_SAPIENS: os.path.join(env.UNIPROT_DIR, "proteins_homo_sapiens.tsv.gz"),
-        # SupportedOrganisms.MUS_MUSCULUS: os.path.join(env.UNIPROT_DIR, "proteins_mus_musculus.tsv.gz"),
+        SupportedOrganisms.MUS_MUSCULUS: os.path.join(env.UNIPROT_DIR, "proteins_mus_musculus.tsv.gz"),
+        SupportedOrganisms.RATTUS_NORVEGICUS: os.path.join(env.UNIPROT_DIR, "proteins_rattus_norvegicus.tsv.gz"),
+        SupportedOrganisms.DROSOPHILA_MELANOGASTER: os.path.join(
+            env.UNIPROT_DIR, "proteins_drosophila_melanogaster.tsv.gz"
+        ),
+        SupportedOrganisms.SACCHAROMYCES_CEREVISIAE: os.path.join(
+            env.UNIPROT_DIR, "proteins_saccharomyces_cerevisiae.tsv.gz"
+        ),
         # SupportedOrganisms.SARS_COV_2: os.path.join(env.UNIPROT_DIR, "proteins_sars_cov_2.tsv.gz"),
         # SupportedOrganisms.ERCC: os.path.join(env.UNIPROT_DIR, "proteins_ercc.tsv.gz"),
         # SupportedOrganisms.DROSOPHILA_MELANOGASTER: os.path.join(
@@ -88,7 +99,8 @@ class GeneChecker:
             gene_label = row["Gene Names (primary)"]
             gene_length = row["Length"]
             gene_location = row["Subcellular location [CC]"]
-            self.gene_dict[gene_id] = (gene_label, gene_length, gene_location)
+            gene_name = row["Protein names"]
+            self.gene_dict[gene_id] = (gene_label, gene_length, gene_location, gene_name)
 
         # with gzip.open(self.GENE_FILES[species], "rt") as genes:
         #     for gene in genes:
@@ -168,6 +180,42 @@ class GeneChecker:
             return self.gene_dict[gene_id][2]
         else:
             raise ValueError(f"The id '{gene_id}' is not a valid ENSEMBL id for '{self.species}'")
+    
+    def get_name(self, gene_id: str) -> str:
+        """
+        Gets protein name associated to the uniprot id
+
+        :param str gene_id: uniprot id
+
+        :rtype str
+        :return A protein name
+        """
+        # Uniprot IDs can have isoform suffixes, these are allowed. All isoforms will have the same name, so we can just take the first part.
+        gene_id = gene_id.split("-")[0]
+        if self.is_valid_id(gene_id):
+            return self.gene_dict[gene_id][3]
+        else:
+            raise ValueError(f"The id '{gene_id}' is not a valid uniprot id for '{self.species}'")
+
+
+class UnknownGeneChecker(GeneChecker):
+    def __init__(self):
+        self.gene_dict = {}
+        self.species = "Unknown"
+
+    def is_valid_id(self, gene_id: str) -> bool:
+        return False
+
+    def get_symbol(self, gene_id: str) -> str:
+        return "Unknown"
+
+    def get_length(self, gene_id: str) -> int:
+        return np.nan
+
+    def get_location(self, gene_id: str) -> str:
+        return "Unknown"
+    def get_name(self, gene_id: str) -> str:
+        return "Unknown"
 
 
 # cache the gene checkers
@@ -175,8 +223,10 @@ _gene_checkers = {}
 
 
 def get_gene_checker(species: SupportedOrganisms) -> GeneChecker:
-    # Values will be instances of gencode.GeneChecker,
-    # keys will be one of gencode.SupportedOrganisms
+    # Values will be instances of GeneChecker, keys will be one of SupportedOrganisms
+    if species is None:
+        return UnknownGeneChecker()
     if species not in _gene_checkers:
         _gene_checkers[species] = GeneChecker(species)
+
     return _gene_checkers[species]

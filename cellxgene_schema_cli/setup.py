@@ -1,22 +1,22 @@
 from setuptools import setup
 
 with open("requirements.txt") as fh:
-    requirements = fh.read().splitlines()
+    requirements = [line.strip() for line in fh if line.strip() and not line.lstrip().startswith("#")]
 
 setup(
     name="cellxgene-schema",
-    version="5.3.0",
-    url="https://github.com/chanzuckerberg/single-cell-curation",
+    version="7.0.0",
+    url="https://github.com/czbiohub-sf/subcellular-proteomics-curation",
     license="MIT",
     author="Chan Zuckerberg Initiative",
     author_email="cellxgene@chanzuckerberg.com",
-    description="Tool for applying and validating cellxgene integration schema to single cell datasets",
-    long_description="Tool for applying and validating cellxgene integration schema to single cell datasets",
+    description="Adjusted cellxgene-schema for validating and labeling subcellular proteomics datasets",
+    long_description="Adjusted cellxgene-schema for validating and labeling subcellular proteomics datasets",
     install_requires=requirements,
     python_requires=">=3.10",
     packages=["cellxgene_schema"],
     package_dir={"cellxgene_schema": "cellxgene_schema"},
-    package_data={"cellxgene_schema": ["gencode_files/*gz", "migrate_files/*json", "schema_definitions/*yaml"]},
+    package_data={"cellxgene_schema": ["uniprot_files/*.tsv.gz", "uniprot_files/*.yml", "schema_definitions/*yaml"]},
     include_package_data=True,
     zip_safe=False,
     classifiers=[
@@ -26,5 +26,4 @@ setup(
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
-    entry_points={"console_scripts": ["cellxgene-schema = cellxgene_schema.cli:schema_cli"]},
 )

@@ -9,7 +9,7 @@ import anndata as ad
 import h5py
 import numpy as np
 from anndata.compat import DaskArray
-from anndata.experimental import read_dispatched, read_elem_as_dask
+from anndata.experimental import read_dispatched
 from cellxgene_ontology_guide.ontology_parser import OntologyParser
 from scipy import sparse
 from xxhash import xxh3_64_intdigest
@@ -88,7 +88,7 @@ def get_matrix_format(matrix: DaskArray) -> str:
     # >>> return getattr(matrix, "format_str", "dense)
     #
     matrix_format = "unknown"
-    matrix_slice = matrix[0:1, 0:1].compute()
+    matrix_slice = matrix[0:1, 0:1]
     if isinstance(matrix_slice, sparse.spmatrix):
         matrix_format = matrix_slice.format
     elif isinstance(matrix_slice, np.ndarray):
@@ -118,8 +118,9 @@ def getattr_anndata(adata: ad.AnnData, attr: str = None):
 
 def read_backed(f: h5py.File, chunk_size: int) -> ad.AnnData:
     """
-    Read an AnnData object from a h5py.File object, reading in matrices (dense or sparse) as dask arrays. Does not
-    read full matrices into memory.
+    Read an AnnData object from a h5py.File object, reading in matrices (dense or sparse) as lazy arrays.
+    Uses AnnData's new read_elem_lazy() where possible (added in AnnData v0.11+).
+    Does not read full matrices into memory.
 
     :param f: h5py.File object
     :param chunk_size: size of chunks to read matrices in
@@ -127,23 +128,34 @@ def read_backed(f: h5py.File, chunk_size: int) -> ad.AnnData:
     """
 
     def callback(func, elem_name: str, elem, iospec):
+        # AnnData >=0.11 uses read_elem_lazy() which handles chunked/lazy reads for dense/sparse/backed
+        # Try to use it for all matrices where it is available
+        # See: https://github.com/scverse/anndata/pull/1247
+        try:
+            # Public location in AnnData >=0.11 (and 0.12+)
+            from anndata.experimental import read_elem_lazy
+        except ImportError:
+            # Fallback for older AnnData where it lived in a private module
+            from anndata._core.io.utils import read_elem_lazy
+
         if "/layers" in elem_name or elem_name == "/X" or elem_name == "/raw/X":
-            if iospec.encoding_type in (
-                "csr_matrix",
-                "csc_matrix",
-            ):
-                n_vars = elem.attrs.get("shape")[1]
-                return read_elem_as_dask(elem, chunks=(chunk_size, n_vars))
-            elif iospec.encoding_type == "array" and len(elem.shape) == 2:
-                n_vars = elem.shape[1]
-                return read_elem_as_dask(elem, chunks=(chunk_size, n_vars))
+            # Pass chunk_size where possible (only for dense arrays)
+            if hasattr(read_elem_lazy, "__call__"):
+                if iospec.encoding_type in ("csr_matrix", "csc_matrix"):
+                    # For sparse arrays, chunking is handled internally
+                    return read_elem_lazy(elem)
+                elif iospec.encoding_type == "array" and len(elem.shape) == 2:
+                    # For dense arrays, suggest chunk size for row dimension
+                    return read_elem_lazy(elem, chunks=(chunk_size, elem.shape[1]))
+                else:
+                    return func(elem)
             else:
+                # Fallback for old AnnData (should rarely occur)
                 return func(elem)
         else:
             return func(elem)
 
     adata = read_dispatched(f, callback=callback)
-
     return adata
 
 
