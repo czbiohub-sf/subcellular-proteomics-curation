@@ -158,6 +158,8 @@ class AnnDataLabelAppender:
 
         for i in ids:
             organism = uniprot.get_organism_from_feature_id(i)
+            # print(i)
+            # print(organism)
             mapping_dict[i] = get_gene_checker(organism).get_symbol(i)
 
         return mapping_dict
@@ -176,7 +178,7 @@ class AnnDataLabelAppender:
 
         for i in ids:
             organism = uniprot.get_organism_from_feature_id(i)
-            mapping_dict[i] = organism.value
+            mapping_dict[i] = organism.value if organism is not None else "Unknown"
 
         return mapping_dict
 
@@ -235,6 +237,23 @@ class AnnDataLabelAppender:
 
         return mapping_dict
 
+    def _get_mapping_dict_feature_name(self, ids: List[str]) -> Dict[str, int]:
+        """
+        Creates a mapping dictionary of feature IDs and feature length, fetching from pre-calculated gene info CSVs
+        derived from UniProt mappings for supported organisms. Set to 0 for non-gene features.
+
+        :param list[str] ids: feature IDs use for mapping
+
+        :return a mapping dictionary: {id: <int>, id: 0, ...}
+        :rtype dict
+        """
+        mapping_dict = {}
+
+        for i in ids:
+            organism = uniprot.get_organism_from_feature_id(i)
+            mapping_dict[i] = get_gene_checker(organism).get_name(i)
+
+        return mapping_dict
     def _get_labels(
         self,
         component: str,
@@ -294,6 +313,9 @@ class AnnDataLabelAppender:
         elif label_type == "feature_location":
             mapping_dict = self._get_mapping_dict_feature_location(ids=ids)
 
+        elif label_type == "feature_name":
+            mapping_dict = self._get_mapping_dict_feature_name(ids=ids)
+
         else:
             raise TypeError(f"'{label_type}' is not supported in 'add-labels' functionality")
 
@@ -317,7 +339,8 @@ class AnnDataLabelAppender:
         for label_def in column_definition["add_labels"]:
             new_column = self._get_labels(component, column, column_definition, label_def["type"])
             new_column_name = label_def["to_column"]
-            getattr_anndata(self.adata, component)[new_column_name] = new_column
+            df = getattr_anndata(self.adata, component)
+            df.insert(0, new_column_name, new_column)
 
     def _add_labels(self):
         """
@@ -335,9 +358,10 @@ class AnnDataLabelAppender:
                         self._add_column(component, column, column_def)
 
             # Doing it for index
-            index_def = self.schema_def["components"][component]["index"]
-            if "add_labels" in index_def:
-                self._add_column(component, "index", index_def)
+            if "index" in self.schema_def["components"][component]:
+                index_def = self.schema_def["components"][component]["index"]
+                if "add_labels" in index_def:
+                    self._add_column(component, "index", index_def)
 
     def _remove_categories_with_zero_values(self):
         df = self.adata.obs
