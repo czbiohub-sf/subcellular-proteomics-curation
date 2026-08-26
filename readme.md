@@ -61,8 +61,26 @@ full validation and annotation workflow.
 Protein validation uses gzipped UniProt TSV files bundled in
 `cellxgene_schema_cli/cellxgene_schema/uniprot_files/`. Supported organisms are configured in
 the `SupportedOrganisms` enum in `cellxgene_schema/uniprot.py`. The reference files are
-regenerated with `cellxgene_schema_cli/scripts/protein_processing.py`, and outdated UniProt
-accessions can be remapped with `scripts/update_uniprot_ids.py`.
+regenerated with `cellxgene_schema_cli/scripts/protein_processing.py --force`, and outdated
+UniProt accessions can be remapped with `scripts/update_uniprot_ids.py`.
+
+### Bundled reference version
+
+The files currently committed were downloaded from **UniProt release 2026_02**
+(released 10-June-2026), retrieved 26-August-2026.
+
+| file | accessions | reviewed (Swiss-Prot) |
+| --- | --- | --- |
+| `proteins_homo_sapiens.tsv.gz` | 210,709 | 20,431 |
+| `proteins_mus_musculus.tsv.gz` | 87,782 | 17,267 |
+| `proteins_rattus_norvegicus.tsv.gz` | 61,540 | 8,232 |
+| `proteins_drosophila_melanogaster.tsv.gz` | 42,895 | 3,899 |
+| `proteins_saccharomyces_cerevisiae.tsv.gz` | 6,733 | 6,733 |
+
+Each file has the columns requested by the per-species query in
+`uniprot_files/protein_info.yml`: `Entry`, `Reviewed`, `Length`,
+`Gene Names (primary)`, `Gene Names (synonym)`, `Annotation` (annotation score),
+`Protein names`, `Subcellular location [CC]`.
 
 ## Schema definition
 
